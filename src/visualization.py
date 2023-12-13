@@ -1,11 +1,13 @@
+"""
+    Sample implementations of visualization functions. 
+"""
+
 import os
 
 import matplotlib.pyplot as plt
 import numpy as np
 from skimage.measure import regionprops
 from tqdm import tqdm
-
-# from matplotlib.collections import PatchCollection
 
 
 def draw_cell_area(
@@ -50,7 +52,6 @@ def draw_cell_area(
 
         fig, ax = plt.subplots(figsize=configs["figsize"])
 
-        # ax.imshow(imgs[frame_idx], cmap="gray")
         ax.imshow(_imgs[frame_idx], cmap=configs["img_cmap"])
 
         for cell_region in tqdm(regionprops(_cell_masks)):
@@ -66,8 +67,6 @@ def draw_cell_area(
             _areas_mask,
             alpha=configs["field_alpha"],
             cmap=configs["field_cmap"],
-            # vmin=configs["field_vmin"],
-            # vmax=configs["field_vmax"],
             vmin=min_area,
             vmax=max_area,
         )
@@ -119,7 +118,6 @@ def draw_cell_orientation(
 
         fig, ax = plt.subplots(figsize=configs["figsize"])
 
-        # ax.imshow(imgs[frame_idx], cmap="gray")
         ax.imshow(_imgs[frame_idx], cmap=configs["img_cmap"])
 
         for cell_region in tqdm(regionprops(_cell_masks)):
@@ -138,8 +136,6 @@ def draw_cell_orientation(
             x1 = centroid[1] + (line_length) * np.sin(orientation)
             y1 = centroid[0] + (line_length) * np.cos(orientation)
 
-            # ax.scatter(centroid[1], centroid[0], s=5, color="w", zorder=10)
-            # ax.plot([x0, x1], [y0, y1], linewidth=2.0, color="g")
             ax.plot(
                 [x0, x1],
                 [y0, y1],
@@ -154,7 +150,6 @@ def draw_cell_orientation(
             field_savedir, field_id + "_" + str(frame_idx).zfill(4) + ".png"
         )
         fig.savefig(
-            # filepath, dpi=300, bbox_inches="tight", pad_inches=0, transparent=True
             filepath,
             dpi=configs["dpi"],
             bbox_inches=configs["bbox_inches"],

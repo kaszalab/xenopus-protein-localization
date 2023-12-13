@@ -1,3 +1,7 @@
+"""
+    A set of methods to extract tissue networks from segmented ROIs
+"""
+
 import numpy as np
 import sknw
 from skimage.morphology import skeletonize, thin
@@ -5,6 +9,10 @@ from tqdm import tqdm
 
 
 class TissueNetwork:
+    """
+    Convert cell segmentation masks to tissue network
+    """
+
     def __init__(self, cell_interior_mask):
         """
         cell_interior_mask: a cellpose-like non-overlapping labeling of cell interiors
@@ -61,13 +69,13 @@ def _label_pixels_by_neighbor_number(cell_masks):
 
     _neighbor_number_mask = np.zeros_like(cell_masks)
 
-    PAD = 1  # don't change
+    pad = 1  # don't change
 
     for i in tqdm(range(1, cell_masks.shape[0] - 1)):
         for j in range(1, cell_masks.shape[1] - 1):
-            # searching in a square of side length 1+2*PAD centered on the pixel
+            # searching in a square of side length 1+2*pad centered on the pixel
             pixel_labels[(i, j)] = np.unique(
-                cell_masks[i - PAD : i + PAD, j - PAD : j + PAD]
+                cell_masks[i - pad : i + pad, j - pad : j + pad]
             )
             # label the pixel by the number of unique neighbors
             _neighbor_number_mask[i, j] = len(pixel_labels[(i, j)])
@@ -90,8 +98,8 @@ def graph_from_skeleton(skel, prune=False):
     graph = sknw.build_sknw(skel)
 
     if prune:
-        MIN_NODE_DEGREE = 3
-        remove = [node for node, degree in graph.degree() if degree < MIN_NODE_DEGREE]
+        min_node_degree = 3
+        remove = [node for node, degree in graph.degree() if degree < min_node_degree]
         graph.remove_nodes_from(remove)
 
     return graph
@@ -105,7 +113,10 @@ def skeleton_from_labels(cell_masks):
     return _thin_and_skeletonize(_neighbor_number_mask > 1)
 
 
-def assign_edge_labels(cell_interior_mask, graph, PAD=4):
+def assign_edge_labels(cell_interior_mask, graph, pad=4):
+    """
+    Assign to each edge the cell labels that share it
+    """
     edge_labels = {}
 
     for s, e in tqdm(graph.edges()):
@@ -117,12 +128,13 @@ def assign_edge_labels(cell_interior_mask, graph, PAD=4):
         cx = pivot[0]
         cy = pivot[1]
 
-        overlap = cell_interior_mask[cx - PAD : cx + PAD, cy - PAD : cy + PAD].ravel()
+        overlap = cell_interior_mask[cx - pad : cx + pad, cy - pad : cy + pad].ravel()
 
         edge_labels[(s, e)] = overlap
 
         # we have all the overlapping labels now;
-        # we only need the 2-most-frequent labels (most likely to be the cells associated with this edge)
+        # we only need the 2-most-frequent labels
+        # (most likely to be the cells associated with this edge)
         labels, counts = np.unique(edge_labels[(s, e)], return_counts=True)
 
         # the 2 most likely labels are
@@ -132,6 +144,9 @@ def assign_edge_labels(cell_interior_mask, graph, PAD=4):
 
 
 def assign_node_labels(graph, edge_labels, background=0):
+    """
+    Assign to each node the labels of the cells that meet at that node
+    """
     node_labels = {}
 
     node_ids = list(graph.nodes())

@@ -1,3 +1,10 @@
+"""
+    Methods to analyze protein localization at cell-cell junctions:
+    
+    "edge": bi-cellular junction
+    "node": multi-cellular junction
+"""
+
 import numpy as np
 import pandas as pd
 from scipy.spatial.distance import euclidean
@@ -8,10 +15,82 @@ from tqdm import tqdm
 from .configs import configs
 from .tissue_network import TissueNetwork
 
-"""
-    "edge": bi-cellular junction
-    "node": multi-cellular junction
-"""
+
+class JunctionsAnalyzer:
+    """
+    Prepare the segmented movies for junctions analysis and measure protein localization at
+    bi- and multicellular junctions
+    """
+
+    def __init__(self, imgs, seg_masks):
+        assert len(imgs.shape) == 4
+        assert len(seg_masks.shape) == 4
+
+        self.imgs = imgs
+        self.seg_masks = seg_masks
+
+        self.edge_tables = {}
+        self.node_tables = {}
+
+        self.networks = {}
+
+    def generate_networks(self):
+        """
+        Generate a cell outline network for each frame
+        """
+        frame_ids = np.linspace(
+            0, self.seg_masks.shape[1] - 1, self.seg_masks.shape[1]
+        ).astype(np.uint8)
+
+        for frame_idx in tqdm(
+            frame_ids,
+            ascii=True,
+            desc="generating networks...",
+        ):
+            _seg_mask = self.seg_masks[0, frame_idx]
+            self.networks[frame_idx] = TissueNetwork(_seg_mask).build()
+
+    def tabulate_edges(self):
+        frame_ids = np.linspace(
+            0, self.seg_masks.shape[1] - 1, self.seg_masks.shape[1]
+        ).astype(np.uint8)
+
+        for frame_idx in tqdm(
+            frame_ids,
+            ascii=True,
+            desc="Analyzing bi-cellular junctions...",
+        ):
+            _img = self.imgs[:, frame_idx, :, :]
+
+            self.edge_tables[frame_idx] = tabulate_edges(
+                graph=self.networks[frame_idx]["graph"],
+                edge_labels=self.networks[frame_idx]["edge_labels"],
+                img=_img,
+                frame_idx=frame_idx,
+            )
+
+        return self.edge_tables
+
+    def tabulate_nodes(self):
+        frame_ids = np.linspace(
+            0, self.seg_masks.shape[1] - 1, self.seg_masks.shape[1]
+        ).astype(np.uint8)
+
+        for frame_idx in tqdm(
+            frame_ids,
+            ascii=True,
+            desc="Analyzing multi-cellular junctions...",
+        ):
+            _img = self.imgs[:, frame_idx, :, :]
+
+            self.node_tables[frame_idx] = tabulate_nodes(
+                graph=self.networks[frame_idx]["graph"],
+                node_labels=self.networks[frame_idx]["node_labels"],
+                img=_img,
+                frame_idx=frame_idx,
+            )
+
+        return self.node_tables
 
 
 def measure_channel(img, junction_mask):
@@ -56,7 +135,7 @@ def mask_of_edge_nodes(edge_pts, num_dilations, shape, footprint=disk):
     Create a (dilated) mask of the multicellular junctions (aka nodes)
     that are linked by the given edge.
 
-    edge_pts: sorted pixel coordinates of the edge points; the first and last points represents the nodes
+    edge_pts: sorted pixel coordinates of the edge points; first and last points are the nodes
     num_dilations: number of binary dilations applied to the nodes to create the junction masks
     shape: shape of the output image
     footprint: the footprint used to dilate the nodes
@@ -83,10 +162,13 @@ def tabulate_edges(
     node_dilations=configs["node_dilations"],
     edge_dilations=configs["edge_dilations"],
 ):
+    """
+    Measure and tabulate the bi-cellular junctions (edges) properties in the current frame
+    """
 
-    assert graph != None
+    assert graph is not None
 
-    assert edge_labels != None
+    assert edge_labels is not None
 
     img_shape = img.shape[1:]  # skip the channel axis
     n_channels = img.shape[0]
@@ -97,23 +179,16 @@ def tabulate_edges(
     for _idx, (s, e) in tqdm(
         enumerate(graph.edges()),
         ascii=True,
-        desc="generating junctions tables for frame {}...".format(frame_idx),
+        desc="Analyzing bicellular junctions in frame {}...".format(frame_idx),
     ):
-        """
-        Read the edge points and compute length
-        """
+        # Read the edge points and compute length
 
         ps = graph[s][e]["pts"]
-
-        start_centroid = [int(c) for c in graph.nodes()[s]["o"]]
-        end_centroid = [int(c) for c in graph.nodes()[e]["o"]]
 
         edge_length = compute_edge_length(ps)
         edge_tortuosity = compute_edge_tortuosity(ps)
 
-        """
-            Create the edge mask and exclude the multicellular junctions (nodes) to make an edge 'probe'
-        """
+        # Create the edge mask and exclude the nodes to make an edge 'probe'
 
         nodes_mask = mask_of_edge_nodes(
             edge_pts=ps, num_dilations=node_dilations, shape=img_shape
@@ -130,9 +205,7 @@ def tabulate_edges(
         probe_mask = np.bitwise_and(probe_mask, np.invert(nodes_mask))
         probe_pts = np.argwhere(probe_mask)
 
-        """
-            Compute edge orientation
-        """
+        # Compute edge orientation
         edge_regions = regionprops(label(edge_mask))
 
         # if len(edge_regions) != 2: print('invalid edge with multiple connected components found!')
@@ -141,16 +214,15 @@ def tabulate_edges(
         for region in edge_regions:
             if region.label == 0:
                 continue
-            else:
-                edge_orientation = (
-                    region.orientation
-                )  # keep consistent with cell orientation
+
+            edge_orientation = (
+                region.orientation
+            )  # keep consistent with cell orientation
 
         row = {}
 
-        """
-            Compute the edge intensity statistics for each channel
-        """
+        # Compute the edge intensity statistics for each channel
+
         # Assuming (C, H, W) for img
         for channel_idx in range(n_channels):
             img_channel = img[channel_idx]
@@ -203,39 +275,32 @@ def tabulate_nodes(
     have to remove at the end
     """
 
-    assert graph != None
+    assert graph is not None
 
-    assert node_labels != None
+    assert node_labels is not None
 
     img_shape = img.shape[1:]  # skip the channel axis
     n_channels = img.shape[0]
 
     nodes_table = pd.DataFrame()
     edge_idx = 0
-    node_idx = 0
+    # node_idx = 0
 
     for _idx, (s, e) in tqdm(
         enumerate(graph.edges()),
         ascii=True,
-        desc="generating junctions tables for frame {}...".format(frame_idx),
+        desc="Analyzing multicellular junctions in frame {}...".format(frame_idx),
     ):
-        """
-        Read the edge points and compute length
-        """
+        # Read the edge points and compute length
 
         ps = graph[s][e]["pts"]
 
         start_centroid = [int(c) for c in graph.nodes()[s]["o"]]
-        end_centroid = [int(c) for c in graph.nodes()[e]["o"]]
-
-        edge_length = compute_edge_length(ps)
-        edge_tortuosity = compute_edge_tortuosity(ps)
+        # end_centroid = [int(c) for c in graph.nodes()[e]["o"]] # not needed really
 
         row = {}
 
-        """
-            Create the edge mask and exclude the multicellular junctions (nodes) to make an edge 'probe'
-        """
+        # Create the edge mask and exclude the multicellular junctions (nodes) to make an edge 'probe'
 
         nodes_mask = mask_of_edge_nodes(
             edge_pts=ps, num_dilations=node_dilations, shape=img_shape
@@ -295,77 +360,3 @@ def tabulate_nodes(
         nodes_table = nodes_table.drop_duplicates(subset="cell_ids")
 
     return nodes_table
-
-
-class JunctionsAnalyzer:
-    """ """
-
-    def __init__(self, imgs, seg_masks):
-        assert len(imgs.shape) == 4
-        assert len(seg_masks.shape) == 4
-
-        self.imgs = imgs
-        self.seg_masks = seg_masks
-
-        self.edge_tables = {}
-        self.node_tables = {}
-
-        self.networks = {}
-
-    def generate_networks(self):
-        """
-        Generate a cell outline network for each frame
-        """
-        frame_ids = np.linspace(
-            0, self.seg_masks.shape[1] - 1, self.seg_masks.shape[1]
-        ).astype(np.uint8)
-
-        for frame_idx in tqdm(
-            frame_ids,
-            ascii=True,
-            desc="generating networks...",
-        ):
-            _seg_mask = self.seg_masks[0, frame_idx]
-            self.networks[frame_idx] = TissueNetwork(_seg_mask).build()
-
-    def tabulate_edges(self):
-        frame_ids = np.linspace(
-            0, self.seg_masks.shape[1] - 1, self.seg_masks.shape[1]
-        ).astype(np.uint8)
-
-        for frame_idx in tqdm(
-            frame_ids,
-            ascii=True,
-            desc="generating bi-cellular junctions tables...",
-        ):
-            _img = self.imgs[:, frame_idx, :, :]
-
-            self.edge_tables[frame_idx] = tabulate_edges(
-                graph=self.networks[frame_idx]["graph"],
-                edge_labels=self.networks[frame_idx]["edge_labels"],
-                img=_img,
-                frame_idx=frame_idx,
-            )
-
-        return self.edge_tables
-
-    def tabulate_nodes(self):
-        frame_ids = np.linspace(
-            0, self.seg_masks.shape[1] - 1, self.seg_masks.shape[1]
-        ).astype(np.uint8)
-
-        for frame_idx in tqdm(
-            frame_ids,
-            ascii=True,
-            desc="generating multi-cellular junctions tables...",
-        ):
-            _img = self.imgs[:, frame_idx, :, :]
-
-            self.node_tables[frame_idx] = tabulate_nodes(
-                graph=self.networks[frame_idx]["graph"],
-                node_labels=self.networks[frame_idx]["node_labels"],
-                img=_img,
-                frame_idx=frame_idx,
-            )
-
-        return self.node_tables

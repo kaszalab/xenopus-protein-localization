@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 def update_seg_masks_with_tracks(seg_masks, tracks):
     """
-    This is redundant now; we can use the function that ships with btrack.
+    You can also use the same function that ships with btrack now.
     """
 
     frame_ids = np.linspace(0, len(seg_masks) - 1, len(seg_masks)).astype(np.uint8)
@@ -40,7 +40,7 @@ def run_btrack(
     seg_interior_masks, FEATURES, search_radius, savedir, record_id="ZO1_test"
 ):
     """
-    Track cells in the segmentation masks
+    Track cells over time in a segmented movie
     """
     TRACKING_CONFIG_FILE = datasets.cell_config()
 
@@ -55,8 +55,6 @@ def run_btrack(
         (0, seg_interior_masks[0].shape[1]),
         (0, seg_interior_masks[0].shape[0]),
     )
-    # print(tracking_window)
-    # return
 
     # savepath
     tracker_savepath = os.path.join(savedir, "cell_tracks_{}.h5".format(record_id))
@@ -65,7 +63,6 @@ def run_btrack(
         # configure the tracker using a config file
         tracker.configure_from_file(TRACKING_CONFIG_FILE)
         tracker.verbose = True
-        # tracker.max_search_radius = configs["tracking_search_radius"]
         tracker.max_search_radius = search_radius
         tracker.features = FEATURES
 
@@ -75,21 +72,14 @@ def run_btrack(
         # set the tracking volume
         tracker.volume = tracking_window
 
-        # track them (in interactive mode)
-        # tracker.track_interactive(step_size=100)
-
         # generate hypotheses and run the global optimizer
         tracker.optimize()
-
-        # get the tracks in a format for napari visualization
-        # data, properties, graph = tracker.to_napari()
-        # _, _, _ = tracker.to_napari()
 
         # store the tracks
         tracks = tracker.tracks
 
         # store the configuration
-        cfg = tracker.configuration
+        # cfg = tracker.configuration
 
         # export the track data
         tracker.export(tracker_savepath, obj_type="obj_type_1")

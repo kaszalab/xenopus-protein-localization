@@ -1,7 +1,7 @@
 A minimal toolset for analyzing protein localization patterns and tissue structure in the _Xenopus laevis_ neural plate epithelium, supporting
 
 Miho Matsuda, Jan Rozman, Sassan Ostvar, Karen Kasza, Sergei Sokol. <br>
-**Mechanical control of neural plate folding by apical domain alteration**. Nature Communications 2023.<br> doi: https://doi.org/10.1101/2023.02.10.528047
+**Mechanical control of neural plate folding by apical domain alteration**. Nature Communications 2023.<br> bioRxiv: https://doi.org/10.1101/2023.02.10.528047
 
 <p align="left">
     <img src="./assets/output.gif" height="300"/><br>

@@ -1,3 +1,7 @@
+"""
+    Methods to analyze cell morphology and protein localization in the cytoplasm
+"""
+
 import numpy as np
 import pandas as pd
 from skimage.measure import regionprops
@@ -9,7 +13,7 @@ from .configs import configs
 
 def mask_of_cell_cytoplasms(cell_masks, footprint):
     """
-    Erode all cell masks to cover only the cytoplasms in the current timepoint;
+    Erode all cell masks to cover only the cell interiors in the current timepoint;
     for now this uses the same footprint for all cells
     """
     cyto_masks = np.zeros_like(cell_masks)
@@ -37,7 +41,7 @@ def measure_channel(img, cell_cyto_mask):
 
 def tabulate_cells(seg_masks, cyto_masks, img, frame_idx):
     """
-    Tabulate cell morphology and cytoplasmic protein intensities for all cells _in the current timepoint_
+    Tabulate cell morphology and cyto protein intensities for all cells _in the current timepoint_
     """
 
     cells_table = pd.DataFrame()
@@ -47,7 +51,7 @@ def tabulate_cells(seg_masks, cyto_masks, img, frame_idx):
     for cell_region in tqdm(
         regionprops(_cell_masks),
         ascii=True,
-        desc="Generating cells table for frame {}...".format(frame_idx),
+        desc="Analyzing cells in frame {}...".format(frame_idx),
     ):
         cell_cyto_mask = cyto_masks == cell_region.label
 
@@ -89,7 +93,7 @@ def tabulate_cells(seg_masks, cyto_masks, img, frame_idx):
 
 class CytoAnalyzer:
     """
-    Tabulate cell morphology and cytoplasmic protein intensities for all timepoints in the movie
+    Tabulate cell morphology and cyto protein intensities for all timepoints in the movie
     """
 
     def __init__(self, imgs, seg_masks):

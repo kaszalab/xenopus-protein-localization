@@ -1,11 +1,13 @@
+"""
+    Helpful dataloaders.
+"""
+
 import glob
 import os
 
 import numpy as np
 from skimage.io import imread
-from tqdm import tqdm
 
-from .configs import configs
 
 def load_data(
     channel_1_dirpath=None,
@@ -23,7 +25,7 @@ def load_data(
     channel_1_imgs = None
     channel_2_imgs = None
     interior_seg_masks = None
-    outline_seg_masks = None
+    # outline_seg_masks = None
 
     channels = []
 
@@ -43,7 +45,6 @@ def load_data(
             imread(path, plugin=img_reader_plugin) for path in channel_2_img_filepaths
         ]
 
-    seg_channel = seg_channel
     seg_filepaths = glob.glob(os.path.join(channels[seg_channel], seg_glob))
     seg_filepaths.sort()
     interior_seg_masks = [
